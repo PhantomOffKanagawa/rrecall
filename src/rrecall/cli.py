@@ -26,5 +26,28 @@ def costs() -> None:
     """View token usage and cost estimates."""
 
 
+# ---------------------------------------------------------------------------
+# Hooks — called by Claude Code, read JSON from stdin
+# ---------------------------------------------------------------------------
+
+@main.group()
+def hooks() -> None:
+    """Hook entry points called by Claude Code (reads JSON from stdin)."""
+
+
+@hooks.command("pre-compact")
+def hooks_pre_compact() -> None:
+    """PreCompact hook — snapshots transcript before compaction."""
+    from rrecall.hooks.pre_compact import run
+    run()
+
+
+@hooks.command("session-end")
+def hooks_session_end() -> None:
+    """SessionEnd hook — triggers transcript conversion to Markdown."""
+    from rrecall.hooks.session_end import run
+    run()
+
+
 if __name__ == "__main__":
     main()

@@ -41,8 +41,8 @@ def test_fresh_install_creates_settings(tmp_path: Path):
     assert "hooks" in settings
     assert len(settings["hooks"]["PreCompact"]) == 1
     assert len(settings["hooks"]["SessionEnd"]) == 1
-    assert settings["hooks"]["PreCompact"][0]["hooks"][0]["command"] == "python -m rrecall.hooks.pre_compact"
-    assert settings["hooks"]["SessionEnd"][0]["hooks"][0]["command"] == "python -m rrecall.hooks.session_end"
+    assert settings["hooks"]["PreCompact"][0]["hooks"][0]["command"] == "rrecall hooks pre-compact"
+    assert settings["hooks"]["SessionEnd"][0]["hooks"][0]["command"] == "rrecall hooks session-end"
 
 
 def test_preserves_existing_settings(tmp_path: Path):

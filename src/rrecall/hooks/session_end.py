@@ -20,8 +20,8 @@ from rrecall.utils.logging import get_logger
 logger = get_logger("hooks.session_end")
 
 
-def main() -> None:
-    """Entry point — reads hook payload from stdin."""
+def run() -> None:
+    """Core logic — reads hook payload from stdin. Does not call sys.exit."""
     try:
         raw = sys.stdin.read()
         if not raw.strip():
@@ -81,8 +81,13 @@ def main() -> None:
 
     except Exception:
         logger.exception("SessionEnd hook failed")
-    finally:
-        sys.exit(0)
+        # Swallow — never block Claude Code
+
+
+def main() -> None:
+    """Entry point for ``python -m`` usage. Calls run() then exits 0."""
+    run()
+    sys.exit(0)
 
 
 if __name__ == "__main__":

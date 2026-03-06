@@ -69,7 +69,7 @@ $preCompactHook = [ordered]@{
     "hooks" = @(
         [ordered]@{
             "type" = "command"
-            "command" = "python -m rrecall.hooks.pre_compact"
+            "command" = "rrecall hooks pre-compact"
         }
     )
 }
@@ -78,7 +78,7 @@ $sessionEndHook = [ordered]@{
     "hooks" = @(
         [ordered]@{
             "type" = "command"
-            "command" = "python -m rrecall.hooks.session_end"
+            "command" = "rrecall hooks session-end"
         }
     )
 }
@@ -100,14 +100,14 @@ function Test-HasRrecallHook {
 if (-not $hooks.Contains("PreCompact")) {
     $hooks["PreCompact"] = @()
 }
-if (-not (Test-HasRrecallHook $hooks["PreCompact"] "rrecall.hooks.pre_compact")) {
+if (-not (Test-HasRrecallHook $hooks["PreCompact"] "rrecall hooks pre-compact")) {
     $hooks["PreCompact"] += $preCompactHook
 }
 
 if (-not $hooks.Contains("SessionEnd")) {
     $hooks["SessionEnd"] = @()
 }
-if (-not (Test-HasRrecallHook $hooks["SessionEnd"] "rrecall.hooks.session_end")) {
+if (-not (Test-HasRrecallHook $hooks["SessionEnd"] "rrecall hooks session-end")) {
     $hooks["SessionEnd"] += $sessionEndHook
 }
 
@@ -116,5 +116,5 @@ $json = $settings | ConvertTo-Json -Depth 10
 Set-Content -Path $SettingsFile -Value $json -Encoding UTF8
 
 Write-Host "rrecall hooks installed to $SettingsFile"
-Write-Host "  PreCompact  -> python -m rrecall.hooks.pre_compact"
-Write-Host "  SessionEnd  -> python -m rrecall.hooks.session_end"
+Write-Host "  PreCompact  -> rrecall hooks pre-compact"
+Write-Host "  SessionEnd  -> rrecall hooks session-end"
