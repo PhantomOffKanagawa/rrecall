@@ -642,9 +642,9 @@ Go through every module and ensure:
 | 1.4 | hooks | `pre_compact.py` | 1.3 | [x] |
 | 1.5 | hooks | `session_end.py`, `finalize.py` | 1.1-1.4 | [x] |
 | 1.6 | scripts | `install-hooks.sh`, `install-hooks.ps1` | 1.4, 1.5 | [x] |
-| 2.1 | cli | `cli.py` | 0.2 | [ ] |
-| 2.2 | notes | `indexer.py`, `searcher.py`, `lancedb_store.py` | 2.1, 0.3 | [ ] |
-| 3.1 | embedding | `base.py` | 0.2 | [ ] |
+| 2.1 | cli | `cli.py` | 0.2 | [X] |
+| 2.2 | notes | `indexer.py`, `searcher.py`, `lancedb_store.py` | 2.1, 0.3 | [X] |
+| 3.1 | embedding | `base.py` | 0.2 | [X] |
 | 3.2 | embedding | `local_onnx.py` | 3.1 | [ ] |
 | 3.3 | embedding | `openai_provider.py`, `cost_tracker.py` | 3.1 | [ ] |
 | 3.4 | notes | update `indexer.py`, `searcher.py` | 2.2, 3.1-3.2 | [ ] |
