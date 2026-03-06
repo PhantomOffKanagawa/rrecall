@@ -26,14 +26,11 @@ jobs:
 
       - name: Install PowerShell Core
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget apt-transport-https software-properties-common
-          source /etc/os-release
-          wget -q "https://packages.microsoft.com/config/ubuntu/$VERSION_ID/packages-microsoft-prod.deb"
-          sudo dpkg -i packages-microsoft-prod.deb
-          rm packages-microsoft-prod.deb
-          sudo apt-get update
-          sudo apt-get install -y powershell
+          apt-get update && apt-get install -y wget jq
+          PWSH_VER=$(wget -qO- https://api.github.com/repos/PowerShell/PowerShell/releases/latest | jq -r '.tag_name')
+          wget -q "https://github.com/PowerShell/PowerShell/releases/download/${PWSH_VER}/powershell_${PWSH_VER#v}-1.deb_amd64.deb"
+          dpkg -i powershell_*.deb || apt-get install -f -y
+          rm powershell_*.deb
 
       - name: Run tests
         run: uv run pytest tests/ -v
