@@ -85,6 +85,30 @@ def code() -> None:
     """Search and index code for semantic retrieval."""
 
 
+@code.command("index")
+@click.option("--repo", "repo_path", type=click.Path(exists=True), default=".", help="Repo path (default: current dir).")
+@click.option("--force", is_flag=True, help="Re-index all files even if unchanged.")
+@click.option("--embed/--no-embed", default=True, help="Compute embeddings (default: on).")
+def code_index(repo_path: str, force: bool, embed: bool) -> None:
+    """Index a code repository for search."""
+    from pathlib import Path
+
+    from rrecall.code.indexer import index_repo
+    from rrecall.config import get_config
+    from rrecall.vectordb.lancedb_store import VectorStore
+
+    store = VectorStore()
+    config = get_config()
+    embedder = None
+    if embed:
+        from rrecall.embedding.base import get_provider
+        embedder = get_provider(config)
+
+    path = Path(repo_path).resolve()
+    files, chunks = index_repo(store, path, config=config, embedder=embedder, force=force)
+    click.echo(f"Indexed {files} files ({chunks} chunks) from {path.name}")
+
+
 @main.group()
 def costs() -> None:
     """View token usage and cost estimates."""
