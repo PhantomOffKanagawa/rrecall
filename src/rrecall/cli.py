@@ -109,6 +109,51 @@ def code_index(repo_path: str, force: bool, embed: bool) -> None:
     click.echo(f"Indexed {files} files ({chunks} chunks) from {path.name}")
 
 
+@code.command("search")
+@click.argument("query")
+@click.option("--mode", default="text", type=click.Choice(["text", "vector", "hybrid"]), help="Search mode.")
+@click.option("--top-k", default=10, type=int, help="Max results.")
+@click.option("--language", default=None, help="Filter by language.")
+@click.option("--chunk-type", default=None, help="Filter by chunk type (function, class, imports).")
+@click.option("--repo", "repo_name", default=None, help="Filter by repo name.")
+def code_search(query: str, mode: str, top_k: int, language: str | None, chunk_type: str | None, repo_name: str | None) -> None:
+    """Search indexed code."""
+    from rrecall.code.searcher import search as do_search
+    from rrecall.vectordb.lancedb_store import VectorStore
+
+    store = VectorStore()
+    embedder = None
+    if mode in ("vector", "hybrid"):
+        from rrecall.config import get_config
+        from rrecall.embedding.base import get_provider
+        embedder = get_provider(get_config())
+
+    results = do_search(store, query, top_k=top_k, mode=mode, language=language,
+                        chunk_type=chunk_type, repo_name=repo_name, embedder=embedder)
+
+    if not results:
+        click.echo("No results found.")
+        return
+
+    for i, r in enumerate(results, 1):
+        click.echo(f"\n--- Result {i} (score: {r.score:.4f}) ---")
+        click.echo(f"File: {r.source_file}")
+        meta = r.metadata
+        parts = []
+        if meta.get("language"):
+            parts.append(meta["language"])
+        if meta.get("symbol_name"):
+            parts.append(meta["symbol_name"])
+        if meta.get("chunk_type"):
+            parts.append(meta["chunk_type"])
+        if parts:
+            click.echo(f"  {' | '.join(parts)}")
+        preview = r.text[:300].rstrip()
+        if len(r.text) > 300:
+            preview += "\n..."
+        click.echo(preview)
+
+
 @main.group()
 def costs() -> None:
     """View token usage and cost estimates."""

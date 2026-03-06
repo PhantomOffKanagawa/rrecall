@@ -649,11 +649,11 @@ Go through every module and ensure:
 | 3.3 | embedding | `openai_provider.py`, `cost_tracker.py` | 3.1 | [X] |
 | 3.4 | notes | update `indexer.py`, `searcher.py` | 2.2, 3.1-3.2 | [X] |
 | 3.5 | embedding | `server.py` | 3.2 | [X] |
-| 4.1 | code | `languages.py` | 0.1 | [ ] |
-| 4.2 | code | `treesitter.py` | 4.1 | [ ] |
-| 4.3 | code | extend `treesitter.py` | 4.2 | [ ] |
-| 4.4 | code | `indexer.py` | 4.2, 3.1, 2.2 (LanceDB) | [ ] |
-| 4.5 | code | `searcher.py` | 4.4 | [ ] |
+| 4.1 | code | `languages.py` | 0.1 | [X] |
+| 4.2 | code | `treesitter.py` | 4.1 | [X] |
+| 4.3 | code | extend `treesitter.py` | 4.2 | [X] |
+| 4.4 | code | `indexer.py` | 4.2, 3.1, 2.2 (LanceDB) | [X] |
+| 4.5 | code | `searcher.py` | 4.4 | [X] |
 | 5.1 | mcp | `mcp_server.py` | 3.1 | [ ] |
 | 5.2 | mcp | `mcp_server.py` | 5.1, 2.2 | [ ] |
 | 5.3 | mcp | `mcp_server.py` | 5.1, 4.5 | [ ] |
