@@ -79,6 +79,22 @@ def costs() -> None:
     """View token usage and cost estimates."""
 
 
+@costs.command("show")
+@click.option("--period", default="month", type=click.Choice(["day", "week", "month"]), help="Time period.")
+def costs_show(period: str) -> None:
+    """Show embedding cost summary."""
+    from rrecall.embedding.cost_tracker import get_summary
+
+    s = get_summary(period)
+    if s.entries == 0:
+        click.echo(f"No API usage in the last {period}.")
+        return
+    click.echo(f"Period: last {period} ({s.entries} entries)")
+    click.echo(f"Tokens: {s.total_tokens:,}")
+    click.echo(f"Requests: {s.total_requests:,}")
+    click.echo(f"Est. cost: ${s.total_cost:.6f}")
+
+
 # ---------------------------------------------------------------------------
 # Hooks — called by Claude Code, read JSON from stdin
 # ---------------------------------------------------------------------------
