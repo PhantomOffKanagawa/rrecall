@@ -72,38 +72,35 @@ def _extract_signature(node: ts.Node, source: bytes, language: str) -> str:
     return first_line
 
 
+def _unwrap_node(node: ts.Node) -> ts.Node:
+    """Unwrap wrapper nodes (export_statement, decorated_definition) to the inner declaration."""
+    if node.type in ("export_statement", "decorated_definition"):
+        for child in node.children:
+            if child.type not in ("export", "default", "decorator", "comment"):
+                return child
+    return node
+
+
 def _classify_node(node: ts.Node, config: LanguageConfig) -> str:
     """Classify a node as function, class, imports, or other."""
-    ntype = node.type
-    if ntype in config.merge_nodes:
+    inner = _unwrap_node(node)
+    ntype = inner.type
+    if node.type in config.merge_nodes:
         return "imports"
     if "class" in ntype or "struct" in ntype or "interface" in ntype:
         return "class"
     if "function" in ntype or "method" in ntype:
         return "function"
-    if ntype == "decorated_definition":
-        # Look at the inner node
-        for child in node.children:
-            if "class" in child.type:
-                return "class"
-            if "function" in child.type or "definition" in child.type:
-                return "function"
     return "other"
 
 
 def _symbol_name(node: ts.Node, source: bytes) -> str:
     """Extract the symbol name from a definition node."""
-    # Look for a 'name' or 'identifier' child
-    for child in node.children:
-        if child.type in ("identifier", "name", "property_identifier"):
+    inner = _unwrap_node(node)
+    # Look for a 'name', 'identifier', or 'type_identifier' child
+    for child in inner.children:
+        if child.type in ("identifier", "name", "property_identifier", "type_identifier", "qualified_name"):
             return _node_text(child, source)
-    # For decorated definitions, recurse into the inner definition
-    if node.type == "decorated_definition":
-        for child in node.children:
-            if child.type != "decorator":
-                name = _symbol_name(child, source)
-                if name:
-                    return name
     return ""
 
 
@@ -156,6 +153,50 @@ def _split_large_node(
                 child, source, language, config, max_chars, file_path, child_name,
             ))
     return chunks
+
+
+def _extract_context_children(
+    node: ts.Node,
+    source: bytes,
+    language: str,
+    config: LanguageConfig,
+    max_chars: int,
+    file_path: str,
+    ctx_name: str,
+    chunks: list[CodeChunk],
+) -> None:
+    """Recurse into context nodes (namespaces, declaration_lists) to find top-level declarations."""
+    for child in node.children:
+        text = _node_text(child, source)
+        if not text.strip():
+            continue
+        # Container nodes like declaration_list, { } — recurse into them
+        if child.type in ("declaration_list", "block"):
+            _extract_context_children(child, source, language, config, max_chars,
+                                      file_path, ctx_name, chunks)
+            continue
+        if child.type in config.top_level_nodes:
+            if _node_size(child) <= max_chars:
+                sig = _extract_signature(child, source, language)
+                name = _symbol_name(child, source)
+                ctype = _classify_node(child, config)
+                header = _build_context_header(file_path, ctx_name, sig)
+                chunks.append(CodeChunk(
+                    text=text,
+                    file_path=file_path,
+                    language=language,
+                    chunk_type=ctype,
+                    symbol_name=name,
+                    parent_symbol=ctx_name,
+                    signature=sig,
+                    start_line=child.start_point.row + 1,
+                    end_line=child.end_point.row + 1,
+                    context_header=header,
+                ))
+            else:
+                chunks.extend(_split_large_node(
+                    child, source, language, config, max_chars, file_path, ctx_name,
+                ))
 
 
 def extract_chunks(
@@ -220,33 +261,8 @@ def extract_chunks(
         # Context nodes (e.g. namespaces) — recurse into their children
         if ntype in config.context_nodes:
             ctx_name = _symbol_name(child, source)
-            for grandchild in child.children:
-                gc_text = _node_text(grandchild, source)
-                if not gc_text.strip():
-                    continue
-                if grandchild.type in config.top_level_nodes:
-                    if _node_size(grandchild) <= max_chars:
-                        sig = _extract_signature(grandchild, source, language)
-                        name = _symbol_name(grandchild, source)
-                        ctype = _classify_node(grandchild, config)
-                        header = _build_context_header(file_path, ctx_name, sig)
-                        chunks.append(CodeChunk(
-                            text=gc_text,
-                            file_path=file_path,
-                            language=language,
-                            chunk_type=ctype,
-                            symbol_name=name,
-                            parent_symbol=ctx_name,
-                            signature=sig,
-                            start_line=grandchild.start_point.row + 1,
-                            end_line=grandchild.end_point.row + 1,
-                            context_header=header,
-                        ))
-                    else:
-                        chunks.extend(_split_large_node(
-                            grandchild, source, language, config, max_chars,
-                            file_path, ctx_name,
-                        ))
+            _extract_context_children(child, source, language, config, max_chars,
+                                      file_path, ctx_name, chunks)
             continue
 
         # Top-level or other nodes
