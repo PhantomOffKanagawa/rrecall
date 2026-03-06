@@ -30,3 +30,7 @@
 - `record_session_end` silently no-ops if session not already registered (no auto-create)
 - `record_pre_compact` auto-creates the session entry if not found
 - `is_duplicate` returns `False` for empty string hash even if stored hash is also empty
+- `finalize()` does NOT call `register_session` internally — tests that rely on registry state (completed status, resumed session path lookup) must call `register_session` before calling `finalize()`
+- `conftest.py` already provides global `autouse` fixtures for `_isolate_env` (clears RRECALL_* env vars) and `_reset_config_singleton` — individual test files only need to set `RRECALL_CONFIG_DIR` via monkeypatch, not reset the singleton manually (though it is safe to also reset it in a local fixture)
+- `session_end.py` always calls `sys.exit(0)` in a `finally` block — all paths exit with SystemExit(0)
+- To test `session_end.main()` subprocess branching: monkeypatch `subprocess.Popen` with a lambda that captures args into a list; write `config.toml` in the temp config dir with `[hooks.filtering]\nenabled = false` to bypass filtering
