@@ -5,6 +5,8 @@
 - [ ] Show success in response on hook
 - [ ] Add options to create and link Project or JIRA Card pages for better Graph View Linking
 - [ ] Add option for tool use responses
+- [ ] Add better loading indicator
+- [ ] Limit OOM errors but ensure speed
 
 ## Installation Scripts
 

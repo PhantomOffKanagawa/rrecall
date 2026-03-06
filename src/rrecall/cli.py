@@ -180,6 +180,13 @@ def costs_show(period: str) -> None:
     click.echo(f"Est. cost: ${s.total_cost:.6f}")
 
 
+@main.command()
+def serve() -> None:
+    """Start the MCP server (stdio transport)."""
+    from rrecall.mcp_server import main as mcp_main
+    mcp_main()
+
+
 # ---------------------------------------------------------------------------
 # Hooks — called by Claude Code, read JSON from stdin
 # ---------------------------------------------------------------------------

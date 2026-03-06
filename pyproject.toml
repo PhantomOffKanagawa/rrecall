@@ -11,6 +11,7 @@ dependencies = [
     "click>=8.0",
     "fastembed-gpu>=0.4",
     "lancedb>=0.15",
+    "mcp[cli]>=1.0",
     "openai>=1.0",
     "pathspec>=0.12",
     "pyarrow>=15.0",
@@ -26,6 +27,7 @@ dependencies = [
 
 [project.scripts]
 rrecall = "rrecall.cli:main"
+rrecall-mcp = "rrecall.mcp_server:main"
 
 [build-system]
 requires = ["uv_build>=0.9.12,<0.10.0"]
