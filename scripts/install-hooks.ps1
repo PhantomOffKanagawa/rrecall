@@ -1,5 +1,6 @@
 # Install rrecall hooks into Claude Code settings.
 # Usage: .\install-hooks.ps1 [-Scope user|project]
+# Compatible with Windows PowerShell 5.1+ and PowerShell Core 7+.
 
 param(
     [ValidateSet("user", "project")]
@@ -9,7 +10,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 if ($Scope -eq "user") {
-    $SettingsDir = Join-Path $env:USERPROFILE ".claude"
+    $homeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
+    $SettingsDir = Join-Path $homeDir ".claude"
 } else {
     $SettingsDir = Join-Path (Get-Location) ".claude"
 }
@@ -20,33 +22,61 @@ if (-not (Test-Path $SettingsDir)) {
     New-Item -ItemType Directory -Path $SettingsDir -Force | Out-Null
 }
 
+# --- Helper: convert PSCustomObject (5.1) to ordered hashtable ---
+function ConvertTo-Hashtable {
+    param([Parameter(ValueFromPipeline)] $InputObject)
+    process {
+        if ($null -eq $InputObject) { return @{} }
+        if ($InputObject -is [System.Collections.IDictionary]) { return $InputObject }
+        if ($InputObject -is [PSCustomObject]) {
+            $ht = [ordered]@{}
+            foreach ($prop in $InputObject.PSObject.Properties) {
+                $val = $prop.Value
+                if ($val -is [PSCustomObject]) {
+                    $val = ConvertTo-Hashtable $val
+                } elseif ($val -is [System.Collections.IEnumerable] -and $val -isnot [string]) {
+                    $val = @($val | ForEach-Object { ConvertTo-Hashtable $_ })
+                }
+                $ht[$prop.Name] = $val
+            }
+            return $ht
+        }
+        return $InputObject
+    }
+}
+
 # Back up existing settings
 if (Test-Path $SettingsFile) {
     $timestamp = Get-Date -Format "yyyyMMddHHmmss"
     Copy-Item $SettingsFile "$SettingsFile.bak.$timestamp"
-    $settings = Get-Content $SettingsFile -Raw | ConvertFrom-Json -AsHashtable
+    $raw = Get-Content $SettingsFile -Raw | ConvertFrom-Json
+    $settings = ConvertTo-Hashtable $raw
 } else {
-    $settings = @{}
+    $settings = [ordered]@{}
 }
 
-if (-not $settings.ContainsKey("hooks")) {
-    $settings["hooks"] = @{}
+if (-not $settings.Contains("hooks")) {
+    $settings["hooks"] = [ordered]@{}
 }
 
 $hooks = $settings["hooks"]
+if ($hooks -isnot [System.Collections.IDictionary]) {
+    $hooks = ConvertTo-Hashtable $hooks
+    $settings["hooks"] = $hooks
+}
 
-$preCompactHook = @{
+$preCompactHook = [ordered]@{
     "hooks" = @(
-        @{
+        [ordered]@{
             "type" = "command"
             "command" = "python -m rrecall.hooks.pre_compact"
         }
     )
 }
 
-$sessionEndHook = @{
+$sessionEndHook = [ordered]@{
     "hooks" = @(
-        @{
+        [ordered]@{
             "type" = "command"
             "command" = "python -m rrecall.hooks.session_end"
         }
@@ -56,8 +86,10 @@ $sessionEndHook = @{
 function Test-HasRrecallHook {
     param([array]$HookList, [string]$ModuleName)
     foreach ($entry in $HookList) {
-        foreach ($h in $entry.hooks) {
-            if ($h.command -and $h.command.Contains($ModuleName)) {
+        $entryHooks = if ($entry -is [PSCustomObject]) { $entry.hooks } else { $entry["hooks"] }
+        foreach ($h in $entryHooks) {
+            $cmd = if ($h -is [PSCustomObject]) { $h.command } else { $h["command"] }
+            if ($cmd -and $cmd.Contains($ModuleName)) {
                 return $true
             }
         }
@@ -65,14 +97,14 @@ function Test-HasRrecallHook {
     return $false
 }
 
-if (-not $hooks.ContainsKey("PreCompact")) {
+if (-not $hooks.Contains("PreCompact")) {
     $hooks["PreCompact"] = @()
 }
 if (-not (Test-HasRrecallHook $hooks["PreCompact"] "rrecall.hooks.pre_compact")) {
     $hooks["PreCompact"] += $preCompactHook
 }
 
-if (-not $hooks.ContainsKey("SessionEnd")) {
+if (-not $hooks.Contains("SessionEnd")) {
     $hooks["SessionEnd"] = @()
 }
 if (-not (Test-HasRrecallHook $hooks["SessionEnd"] "rrecall.hooks.session_end")) {

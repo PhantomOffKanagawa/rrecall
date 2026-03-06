@@ -106,3 +106,41 @@ def test_output_messages(tmp_path: Path):
     assert "rrecall hooks installed" in result.stdout
     assert "PreCompact" in result.stdout
     assert "SessionEnd" in result.stdout
+
+
+def test_no_backup_on_fresh_install(tmp_path: Path):
+    run_install(tmp_path)
+    claude_dir = tmp_path / ".claude"
+    backups = list(claude_dir.glob("settings.json.bak.*"))
+    assert len(backups) == 0
+
+
+def test_backup_contains_original_content(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    original = {"customSetting": True}
+    (claude_dir / "settings.json").write_text(json.dumps(original))
+
+    run_install(tmp_path)
+    backups = list(claude_dir.glob("settings.json.bak.*"))
+    assert json.loads(backups[0].read_text()) == original
+
+
+def test_project_scope_writes_to_project_dir(tmp_path: Path):
+    project_dir = tmp_path / "myproject"
+    project_dir.mkdir()
+
+    result = run_install(tmp_path, scope="project", cwd=project_dir)
+    assert result.returncode == 0
+    project_settings = project_dir / ".claude" / "settings.json"
+    assert project_settings.exists()
+    settings = json.loads(project_settings.read_text())
+    assert "PreCompact" in settings["hooks"]
+
+
+def test_project_scope_does_not_write_to_home(tmp_path: Path):
+    project_dir = tmp_path / "myproject"
+    project_dir.mkdir()
+
+    run_install(tmp_path, scope="project", cwd=project_dir)
+    assert not (tmp_path / ".claude" / "settings.json").exists()
