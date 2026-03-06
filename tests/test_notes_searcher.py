@@ -8,6 +8,8 @@ from rrecall.notes.indexer import TABLE_NAME
 from rrecall.notes.searcher import search
 from rrecall.vectordb.lancedb_store import NOTES_SCHEMA, VectorStore
 
+_ZERO_VEC = [0.0] * 384
+
 
 @pytest.fixture()
 def store(tmp_path):
@@ -15,9 +17,11 @@ def store(tmp_path):
     s.create_or_open_table(TABLE_NAME, NOTES_SCHEMA)
     s.upsert_chunks(TABLE_NAME, [
         {"id": "1", "text": "python asyncio event loop", "source_file": "a.md", "heading": "Async",
-         "content_hash": "", "session_id": "s1", "project": "backend", "tags": "python,async", "chunk_index": 0},
+         "content_hash": "", "session_id": "s1", "project": "backend", "tags": "python,async", "chunk_index": 0,
+         "vector": _ZERO_VEC},
         {"id": "2", "text": "rust ownership borrow checker", "source_file": "b.md", "heading": "Memory",
-         "content_hash": "", "session_id": "s2", "project": "systems", "tags": "rust", "chunk_index": 0},
+         "content_hash": "", "session_id": "s2", "project": "systems", "tags": "rust", "chunk_index": 0,
+         "vector": _ZERO_VEC},
     ])
     s.ensure_fts_index(TABLE_NAME)
     return s
@@ -38,4 +42,9 @@ def test_search_project_filter(store):
 
 def test_unsupported_mode_raises(store):
     with pytest.raises(ValueError, match="Unsupported search mode"):
+        search(store, "query", mode="nonexistent")
+
+
+def test_vector_mode_requires_embedder(store):
+    with pytest.raises(ValueError, match="requires an embedder"):
         search(store, "query", mode="vector")

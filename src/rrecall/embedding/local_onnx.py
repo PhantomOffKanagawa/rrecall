@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
+import os
+import sys
 from typing import TYPE_CHECKING
 
 from rrecall.embedding.base import EmbeddingProvider
@@ -29,15 +32,37 @@ class LocalOnnxProvider(EmbeddingProvider):
         if self._model is not None:
             return self._model
 
+        import warnings
+
         from fastembed import TextEmbedding
 
         providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if self._use_gpu else ["CPUExecutionProvider"]
-        logger.info("Loading embedding model %s (providers=%s)", self._model_id, providers)
+        logger.info("Loading embedding model %s", self._model_id)
 
-        self._model = TextEmbedding(
-            model_name=self._model_id,
-            providers=providers,
-        )
+        # Suppress ONNX runtime C-level CUDA warnings written to stderr
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        old_stderr = os.dup(2)
+        os.dup2(devnull, 2)
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="Attempt to set CUDAExecutionProvider failed")
+                self._model = TextEmbedding(
+                    model_name=self._model_id,
+                    providers=providers,
+                )
+        finally:
+            os.dup2(old_stderr, 2)
+            os.close(old_stderr)
+            os.close(devnull)
+
+        # Check which provider is active
+        try:
+            active = self._model.model.model.get_providers()  # type: ignore[attr-defined]
+            using_gpu = "CUDAExecutionProvider" in active
+        except AttributeError:
+            using_gpu = False
+        logger.info("Using %s", "GPU (CUDA)" if using_gpu else "CPU")
+
         return self._model
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:

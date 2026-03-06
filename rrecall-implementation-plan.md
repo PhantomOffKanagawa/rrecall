@@ -645,10 +645,10 @@ Go through every module and ensure:
 | 2.1 | cli | `cli.py` | 0.2 | [X] |
 | 2.2 | notes | `indexer.py`, `searcher.py`, `lancedb_store.py` | 2.1, 0.3 | [X] |
 | 3.1 | embedding | `base.py` | 0.2 | [X] |
-| 3.2 | embedding | `local_onnx.py` | 3.1 | [ ] |
-| 3.3 | embedding | `openai_provider.py`, `cost_tracker.py` | 3.1 | [ ] |
-| 3.4 | notes | update `indexer.py`, `searcher.py` | 2.2, 3.1-3.2 | [ ] |
-| 3.5 | embedding | `server.py` | 3.2 | [ ] |
+| 3.2 | embedding | `local_onnx.py` | 3.1 | [X] |
+| 3.3 | embedding | `openai_provider.py`, `cost_tracker.py` | 3.1 | [X] |
+| 3.4 | notes | update `indexer.py`, `searcher.py` | 2.2, 3.1-3.2 | [X] |
+| 3.5 | embedding | `server.py` | 3.2 | [X] |
 | 4.1 | code | `languages.py` | 0.1 | [ ] |
 | 4.2 | code | `treesitter.py` | 4.1 | [ ] |
 | 4.3 | code | extend `treesitter.py` | 4.2 | [ ] |

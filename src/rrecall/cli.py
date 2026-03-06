@@ -19,8 +19,9 @@ def notes() -> None:
 @notes.command()
 @click.option("--file", "file_path", type=click.Path(exists=True), help="Index a single file.")
 @click.option("--force", is_flag=True, help="Re-index all files even if unchanged.")
-def index(file_path: str | None, force: bool) -> None:
-    """Index the Obsidian vault for full-text search."""
+@click.option("--embed/--no-embed", default=True, help="Compute embeddings (default: on).")
+def index(file_path: str | None, force: bool, embed: bool) -> None:
+    """Index the Obsidian vault for full-text and vector search."""
     from pathlib import Path
 
     from rrecall.config import get_config
@@ -29,18 +30,22 @@ def index(file_path: str | None, force: bool) -> None:
 
     store = VectorStore()
     config = get_config()
+    embedder = None
+    if embed:
+        from rrecall.embedding.base import get_provider
+        embedder = get_provider(config)
 
     if file_path:
-        n = index_file(store, Path(file_path), config)
+        n = index_file(store, Path(file_path), config, embedder=embedder)
         click.echo(f"Indexed {n} chunks from {file_path}")
     else:
-        files, chunks, removed = index_vault(store, config, force=force)
+        files, chunks, removed = index_vault(store, config, force=force, embedder=embedder)
         click.echo(f"Indexed {files} files ({chunks} chunks), removed {removed} stale files.")
 
 
 @notes.command()
 @click.argument("query")
-@click.option("--mode", default="text", type=click.Choice(["text"]), help="Search mode.")
+@click.option("--mode", default="text", type=click.Choice(["text", "vector", "hybrid"]), help="Search mode.")
 @click.option("--top-k", default=10, type=int, help="Max results.")
 @click.option("--project", default=None, help="Filter by project.")
 @click.option("--session-id", default=None, help="Filter by session ID.")
@@ -51,7 +56,13 @@ def search(query: str, mode: str, top_k: int, project: str | None, session_id: s
     from rrecall.vectordb.lancedb_store import VectorStore
 
     store = VectorStore()
-    results = do_search(store, query, top_k=top_k, mode=mode, project=project, session_id=session_id, tags=tags)
+    embedder = None
+    if mode in ("vector", "hybrid"):
+        from rrecall.config import get_config
+        from rrecall.embedding.base import get_provider
+        embedder = get_provider(get_config())
+
+    results = do_search(store, query, top_k=top_k, mode=mode, project=project, session_id=session_id, tags=tags, embedder=embedder)
 
     if not results:
         click.echo("No results found.")

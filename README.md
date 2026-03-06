@@ -3,6 +3,8 @@
 ## To-Dos
 - [ ] Cover empty file case for `/scripts/install-hooks.*`
 - [ ] Show success in response on hook
+- [ ] Add options to create and link Project or JIRA Card pages for better Graph View Linking
+- [ ] Add option for tool use responses
 
 ## Installation Scripts
 

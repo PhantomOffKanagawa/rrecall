@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Any
 
 from rrecall.config import RrecallConfig, get_config, get_config_dir
+from rrecall.embedding.base import EmbeddingProvider
 from rrecall.utils.hashing import file_hash
 from rrecall.utils.logging import get_logger
-from rrecall.vectordb.lancedb_store import NOTES_SCHEMA, VectorStore
+from rrecall.vectordb.lancedb_store import VectorStore, notes_schema
 
 logger = get_logger("notes.indexer")
 
@@ -184,7 +185,12 @@ def _collect_vault_files(config: RrecallConfig) -> list[Path]:
     return sorted(files)
 
 
-def index_file(store: VectorStore, file_path: Path, config: RrecallConfig | None = None) -> int:
+def index_file(
+    store: VectorStore,
+    file_path: Path,
+    config: RrecallConfig | None = None,
+    embedder: EmbeddingProvider | None = None,
+) -> int:
     """Index a single markdown file. Returns the number of chunks indexed."""
     if config is None:
         config = get_config()
@@ -196,21 +202,32 @@ def index_file(store: VectorStore, file_path: Path, config: RrecallConfig | None
     if not chunks:
         return 0
 
-    store.create_or_open_table(TABLE_NAME, NOTES_SCHEMA)
-    records = [
-        {
+    # Compute embeddings if a provider is given
+    vectors: list[list[float]] | None = None
+    if embedder is not None:
+        vectors = embedder.embed_texts([c.text for c in chunks])
+
+    dim = embedder.dimension if embedder else 384
+    schema = notes_schema(dim)
+    store.create_or_open_table(TABLE_NAME, schema)
+
+    fh = file_hash(file_path)
+    records = []
+    for i, c in enumerate(chunks):
+        rec: dict[str, Any] = {
             "id": c.id,
             "source_file": c.source_file,
             "heading": c.heading,
             "text": c.text,
-            "content_hash": file_hash(file_path),
+            "content_hash": fh,
             "session_id": c.session_id,
             "project": c.project,
             "tags": c.tags,
             "chunk_index": c.chunk_index,
+            "vector": vectors[i] if vectors else [0.0] * dim,
         }
-        for c in chunks
-    ]
+        records.append(rec)
+
     store.upsert_chunks(TABLE_NAME, records)
     return len(records)
 
@@ -219,6 +236,7 @@ def index_vault(
     store: VectorStore,
     config: RrecallConfig | None = None,
     force: bool = False,
+    embedder: EmbeddingProvider | None = None,
 ) -> tuple[int, int, int]:
     """Index the entire vault. Returns (files_indexed, chunks_added, files_removed)."""
     if config is None:
@@ -227,7 +245,9 @@ def index_vault(
     file_index = _load_file_index()
     files = _collect_vault_files(config)
 
-    store.create_or_open_table(TABLE_NAME, NOTES_SCHEMA)
+    dim = embedder.dimension if embedder else 384
+    schema = notes_schema(dim)
+    store.create_or_open_table(TABLE_NAME, schema)
 
     files_indexed = 0
     chunks_added = 0
@@ -241,7 +261,7 @@ def index_vault(
         if not force and file_index.get(fpath) == fh:
             continue  # unchanged
 
-        n = index_file(store, f, config)
+        n = index_file(store, f, config, embedder=embedder)
         chunks_added += n
         files_indexed += 1
         file_index[fpath] = fh

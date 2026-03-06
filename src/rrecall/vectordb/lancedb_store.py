@@ -14,6 +14,8 @@ from rrecall.utils.logging import get_logger
 
 logger = get_logger("vectordb.lancedb_store")
 
+EMBEDDING_DIM = 384  # Default for bge-small-en-v1.5
+
 # Schema for the notes table
 NOTES_SCHEMA = pa.schema([
     pa.field("id", pa.utf8(), nullable=False),
@@ -25,7 +27,17 @@ NOTES_SCHEMA = pa.schema([
     pa.field("project", pa.utf8()),
     pa.field("tags", pa.utf8()),  # comma-separated
     pa.field("chunk_index", pa.int32()),
+    pa.field("vector", pa.list_(pa.float32(), EMBEDDING_DIM)),
 ])
+
+
+def notes_schema(dim: int = EMBEDDING_DIM) -> pa.Schema:
+    """Build the notes schema with a custom vector dimension."""
+    if dim == EMBEDDING_DIM:
+        return NOTES_SCHEMA
+    fields = [f for f in NOTES_SCHEMA if f.name != "vector"]
+    fields.append(pa.field("vector", pa.list_(pa.float32(), dim)))
+    return pa.schema(fields)
 
 
 @dataclass
@@ -57,9 +69,21 @@ class VectorStore:
         return name in tables
 
     def create_or_open_table(self, name: str, schema: pa.Schema) -> lancedb.table.Table:
-        """Open an existing table or create it with the given schema."""
+        """Open an existing table or create it with the given schema.
+
+        If the existing table's schema doesn't match (e.g. missing vector column),
+        the table is dropped and recreated.
+        """
         if self._table_exists(name):
-            return self._db.open_table(name)
+            table = self._db.open_table(name)
+            existing_names = {f.name for f in table.schema}
+            required_names = {f.name for f in schema}
+            if required_names - existing_names:
+                logger.info("Schema mismatch for table %s, recreating (new columns: %s)",
+                            name, required_names - existing_names)
+                self._db.drop_table(name)
+                return self._db.create_table(name, schema=schema)
+            return table
         return self._db.create_table(name, schema=schema)
 
     def upsert_chunks(self, table_name: str, chunks: list[dict[str, Any]]) -> None:
@@ -114,6 +138,71 @@ class VectorStore:
                 },
             ))
         return results
+
+    def vector_search(
+        self,
+        table_name: str,
+        query_vector: list[float],
+        top_k: int = 10,
+        filter_expr: str | None = None,
+    ) -> list[SearchResult]:
+        """ANN vector search via LanceDB."""
+        table = self._db.open_table(table_name)
+        search = table.search(query_vector, query_type="vector").limit(top_k)
+        if filter_expr:
+            search = search.where(filter_expr)
+        rows = search.to_list()
+        return [
+            SearchResult(
+                id=row.get("id", ""),
+                text=row.get("text", ""),
+                score=row.get("_distance", 0.0),
+                source_file=row.get("source_file", ""),
+                heading=row.get("heading", ""),
+                metadata={k: v for k, v in row.items()
+                          if k not in {"id", "text", "_distance", "source_file", "heading", "vector"}},
+            )
+            for row in rows
+        ]
+
+    def hybrid_search(
+        self,
+        table_name: str,
+        query_text: str,
+        query_vector: list[float],
+        top_k: int = 10,
+        filter_expr: str | None = None,
+        rrf_k: int = 60,
+    ) -> list[SearchResult]:
+        """Hybrid FTS + vector search fused with Reciprocal Rank Fusion (RRF)."""
+        fts_results = self.text_search(table_name, query_text, top_k=top_k, filter_expr=filter_expr)
+        vec_results = self.vector_search(table_name, query_vector, top_k=top_k, filter_expr=filter_expr)
+
+        # RRF: score(d) = sum(1 / (k + rank_i)) across result lists
+        scores: dict[str, float] = {}
+        result_map: dict[str, SearchResult] = {}
+
+        for rank, r in enumerate(fts_results):
+            scores[r.id] = scores.get(r.id, 0.0) + 1.0 / (rrf_k + rank + 1)
+            result_map[r.id] = r
+
+        for rank, r in enumerate(vec_results):
+            scores[r.id] = scores.get(r.id, 0.0) + 1.0 / (rrf_k + rank + 1)
+            if r.id not in result_map:
+                result_map[r.id] = r
+
+        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+        return [
+            SearchResult(
+                id=rid,
+                text=result_map[rid].text,
+                score=score,
+                source_file=result_map[rid].source_file,
+                heading=result_map[rid].heading,
+                metadata=result_map[rid].metadata,
+            )
+            for rid, score in ranked
+        ]
 
     def ensure_fts_index(self, table_name: str, column: str = "text") -> None:
         """Create or replace the FTS index on a table."""
