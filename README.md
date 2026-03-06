@@ -1,5 +1,9 @@
 # rrecall
 
+## To-Dos
+- [ ] Cover empty file case for `/scripts/install-hooks.*`
+- [ ] Show success in response on hook
+
 ## Installation Scripts
 
 Hook installer scripts are provided in `scripts/`:
