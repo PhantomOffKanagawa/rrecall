@@ -7,7 +7,9 @@ authors = [
     { name = "PhantomOffKanagawa", email = "harry@surmafamily.com" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "pydantic>=2.0",
+]
 
 [project.scripts]
 rrecall = "rrecall.cli:main"
@@ -15,3 +17,8 @@ rrecall = "rrecall.cli:main"
 [build-system]
 requires = ["uv_build>=0.9.12,<0.10.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
