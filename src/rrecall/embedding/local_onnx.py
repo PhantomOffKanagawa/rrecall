@@ -65,11 +65,11 @@ class LocalOnnxProvider(EmbeddingProvider):
 
         return self._model
 
-    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+    def embed_texts(self, texts: list[str], batch_size: int = 64) -> list[list[float]]:
         if not texts:
             return []
         model = self._get_model()
-        embeddings = model.embed(texts)
+        embeddings = model.embed(texts, batch_size=batch_size)
         return [vec.tolist() for vec in embeddings]
 
     def embed_query(self, query: str) -> list[float]:

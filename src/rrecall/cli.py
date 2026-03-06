@@ -86,14 +86,13 @@ def code() -> None:
 
 
 @code.command("index")
-@click.option("--repo", "repo_path", type=click.Path(exists=True), default=".", help="Repo path (default: current dir).")
+@click.option("--dir", "dir_path", type=click.Path(exists=True), default=None, help="Index a specific directory instead of configured paths.")
 @click.option("--force", is_flag=True, help="Re-index all files even if unchanged.")
 @click.option("--embed/--no-embed", default=True, help="Compute embeddings (default: on).")
-def code_index(repo_path: str, force: bool, embed: bool) -> None:
-    """Index a code repository for search."""
+def code_index(dir_path: str | None, force: bool, embed: bool) -> None:
+    """Index code for search. By default indexes all configured paths."""
     from pathlib import Path
 
-    from rrecall.code.indexer import index_repo
     from rrecall.config import get_config
     from rrecall.vectordb.lancedb_store import VectorStore
 
@@ -104,9 +103,15 @@ def code_index(repo_path: str, force: bool, embed: bool) -> None:
         from rrecall.embedding.base import get_provider
         embedder = get_provider(config)
 
-    path = Path(repo_path).resolve()
-    files, chunks = index_repo(store, path, config=config, embedder=embedder, force=force)
-    click.echo(f"Indexed {files} files ({chunks} chunks) from {path.name}")
+    if dir_path:
+        from rrecall.code.indexer import index_repo
+        path = Path(dir_path).resolve()
+        files, chunks = index_repo(store, path, config=config, embedder=embedder, force=force)
+        click.echo(f"Indexed {files} files ({chunks} chunks) from {path.name}")
+    else:
+        from rrecall.code.indexer import index_paths
+        dirs, files, chunks = index_paths(store, config=config, embedder=embedder, force=force)
+        click.echo(f"Scanned {dirs} directories, indexed {files} files ({chunks} chunks)")
 
 
 @code.command("search")

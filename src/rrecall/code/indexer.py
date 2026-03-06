@@ -25,6 +25,61 @@ _INDEX_FILE = "code_file_index.json"
 MAX_FILE_SIZE = 100_000  # 100 KB
 
 
+_SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv",
+              "vendor", "dist", "build", ".tox", ".mypy_cache", ".pytest_cache"}
+
+
+def discover_dirs(paths: list[str], scan_depth: int) -> list[Path]:
+    """Find project directories under the given paths.
+
+    Walks each configured path and returns its immediate subdirectories
+    (the "project" level). Each project is then indexed separately so that
+    per-project .gitignore files are respected.
+
+    If a configured path has no subdirectories with indexable files,
+    the path itself is included.
+    """
+    dirs: list[Path] = []
+    for raw in paths:
+        base = Path(raw).expanduser().resolve()
+        if not base.is_dir():
+            logger.warning("Configured path does not exist: %s", base)
+            continue
+        # Collect subdirectories at depth 1 (project level)
+        found_any = False
+        for child in sorted(base.iterdir()):
+            if child.is_dir() and child.name not in _SKIP_DIRS and not child.name.startswith("."):
+                dirs.append(child)
+                found_any = True
+        if not found_any:
+            dirs.append(base)
+    return dirs
+
+
+def index_paths(
+    store: VectorStore,
+    config: RrecallConfig | None = None,
+    embedder: EmbeddingProvider | None = None,
+    force: bool = False,
+) -> tuple[int, int, int]:
+    """Discover and index all directories under configured paths. Returns (dirs, files, chunks)."""
+    if config is None:
+        config = get_config()
+    repos_cfg = config.code.repos.all
+    dirs = discover_dirs(repos_cfg.paths, repos_cfg.scan_depth)
+    logger.info("Discovered %d directories under %s", len(dirs), repos_cfg.paths)
+
+    total_files = 0
+    total_chunks = 0
+    for dir_path in dirs:
+        files, chunks = index_repo(store, dir_path, config=config, embedder=embedder, force=force)
+        logger.info("  %s: %d files, %d chunks", dir_path.name, files, chunks)
+        total_files += files
+        total_chunks += chunks
+
+    return len(dirs), total_files, total_chunks
+
+
 def code_schema(dim: int = EMBEDDING_DIM) -> pa.Schema:
     return pa.schema([
         pa.field("id", pa.utf8(), nullable=False),
@@ -78,9 +133,6 @@ def _is_binary(path: Path) -> bool:
 def collect_repo_files(repo_path: Path) -> list[Path]:
     """Walk a repo directory, respecting .gitignore, skipping binaries and large files."""
     gitignore = _load_gitignore(repo_path)
-    # Always skip these directories
-    skip_dirs = {".git", "node_modules", "__pycache__", ".venv", "venv",
-                 "vendor", "dist", "build", ".tox", ".mypy_cache", ".pytest_cache"}
 
     files: list[Path] = []
     for p in repo_path.rglob("*"):
@@ -88,7 +140,7 @@ def collect_repo_files(repo_path: Path) -> list[Path]:
             continue
         # Skip files in ignored directories
         parts = p.relative_to(repo_path).parts
-        if any(part in skip_dirs for part in parts):
+        if any(part in _SKIP_DIRS for part in parts):
             continue
         # Check language support
         if detect_language(p) is None:
