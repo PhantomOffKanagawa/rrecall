@@ -1,0 +1,17 @@
+[project]
+name = "rrecall"
+version = "0.1.0"
+description = "Persistent, searchable memory for Claude Code — captures conversations to Obsidian and provides semantic search over notes and code."
+readme = "README.md"
+authors = [
+    { name = "PhantomOffKanagawa", email = "harry@surmafamily.com" }
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+rrecall = "rrecall.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.12,<0.10.0"]
+build-backend = "uv_build"

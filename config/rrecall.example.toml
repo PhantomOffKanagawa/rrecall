@@ -1,0 +1,59 @@
+# ~/.rrecall/config.toml — RoboRecall Configuration
+# Copy this file to ~/.rrecall/config.toml and edit to taste.
+
+[general]
+obsidian_vault = "~/Documents/RRecall-Test"
+session_subfolder = "claude-sessions"    # Subfolder within vault for session transcripts
+log_level = "info"                       # debug, info, warning, error
+
+[embedding]
+# "local" or "openai"
+provider = "local"
+
+[embedding.local]
+model = "BAAI/bge-small-en-v1.5"
+use_gpu = true
+# If true, connect to a running embedding server instead of loading model in-process
+use_server = false
+server_url = "http://localhost:9876"
+
+[embedding.openai]
+# API key can also be set via RRECALL_OPENAI_API_KEY env var
+api_key = ""
+model = "text-embedding-3-small"
+
+[embedding.openai.pricing]
+"text-embedding-3-small" = 0.00002
+"text-embedding-3-large" = 0.00013
+
+[hooks]
+enabled = true
+
+[hooks.filtering]
+enabled = true
+min_messages = 3
+min_duration_seconds = 30
+use_llm_filter = false
+
+[hooks.summary]
+enabled = true
+strategy = "transcript"  # "transcript", "claude", "both"
+
+[notes]
+include_patterns = ["*.md"]
+exclude_patterns = ["*.excalidraw.md", ".obsidian/*", ".trash/*"]
+chunk_max_tokens = 512
+chunk_overlap_tokens = 50
+
+[code]
+chunk_max_chars = 1500
+chunk_min_chars = 100
+chunk_overlap_lines = 3
+
+[code.repos.all]
+paths = ["~/code"]
+scan_depth = 2
+
+# Example repo group:
+# [code.repos.groups.backend]
+# paths = ["~/work/api", "~/work/auth"]
