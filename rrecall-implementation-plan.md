@@ -631,30 +631,30 @@ Go through every module and ensure:
 
 ## Quick Reference: What to Build When
 
-| Step | Module | Key File(s) | Depends On |
-|------|--------|-------------|------------|
-| 0.1 | scaffold | `pyproject.toml` | nothing |
-| 0.2 | config | `config.py` | 0.1 |
-| 0.3 | utils | `hashing.py`, `logging.py` | 0.1 |
-| 1.1 | hooks | `transcript_parser.py` | 0.3 |
-| 1.2 | hooks | `transcript_parser.py` | 1.1 |
-| 1.3 | hooks | `session_registry.py` | 0.2, 0.3 |
-| 1.4 | hooks | `pre_compact.py` | 1.3 |
-| 1.5 | hooks | `session_end.py`, `finalize.py` | 1.1-1.4 |
-| 1.6 | scripts | `install-hooks.sh` | 1.4, 1.5 |
-| 2.1 | cli | `cli.py` | 0.2 |
-| 2.2 | notes | `indexer.py`, `searcher.py`, `lancedb_store.py` | 2.1, 0.3 |
-| 3.1 | embedding | `base.py` | 0.2 |
-| 3.2 | embedding | `local_onnx.py` | 3.1 |
-| 3.3 | embedding | `openai_provider.py`, `cost_tracker.py` | 3.1 |
-| 3.4 | notes | update `indexer.py`, `searcher.py` | 2.2, 3.1-3.2 |
-| 3.5 | embedding | `server.py` | 3.2 |
-| 4.1 | code | `languages.py` | 0.1 |
-| 4.2 | code | `treesitter.py` | 4.1 |
-| 4.3 | code | extend `treesitter.py` | 4.2 |
-| 4.4 | code | `indexer.py` | 4.2, 3.1, 2.2 (LanceDB) |
-| 4.5 | code | `searcher.py` | 4.4 |
-| 5.1 | mcp | `mcp_server.py` | 3.1 |
-| 5.2 | mcp | `mcp_server.py` | 5.1, 2.2 |
-| 5.3 | mcp | `mcp_server.py` | 5.1, 4.5 |
-| 5.4 | hooks | `session_start.py` | 5.2, 5.3 |
+| Step | Module | Key File(s) | Depends On | Done |
+|------|--------|-------------|------------|------|
+| 0.1 | scaffold | `pyproject.toml` | nothing | [x] |
+| 0.2 | config | `config.py` | 0.1 | [x] |
+| 0.3 | utils | `hashing.py`, `logging.py` | 0.1 | [x] |
+| 1.1 | hooks | `transcript_parser.py` | 0.3 | [x] |
+| 1.2 | hooks | `markdown_converter.py` | 1.1 | [x] |
+| 1.3 | hooks | `session_registry.py` | 0.2, 0.3 | [x] |
+| 1.4 | hooks | `pre_compact.py` | 1.3 | [x] |
+| 1.5 | hooks | `session_end.py`, `finalize.py` | 1.1-1.4 | [x] |
+| 1.6 | scripts | `install-hooks.sh`, `install-hooks.ps1` | 1.4, 1.5 | [x] |
+| 2.1 | cli | `cli.py` | 0.2 | [ ] |
+| 2.2 | notes | `indexer.py`, `searcher.py`, `lancedb_store.py` | 2.1, 0.3 | [ ] |
+| 3.1 | embedding | `base.py` | 0.2 | [ ] |
+| 3.2 | embedding | `local_onnx.py` | 3.1 | [ ] |
+| 3.3 | embedding | `openai_provider.py`, `cost_tracker.py` | 3.1 | [ ] |
+| 3.4 | notes | update `indexer.py`, `searcher.py` | 2.2, 3.1-3.2 | [ ] |
+| 3.5 | embedding | `server.py` | 3.2 | [ ] |
+| 4.1 | code | `languages.py` | 0.1 | [ ] |
+| 4.2 | code | `treesitter.py` | 4.1 | [ ] |
+| 4.3 | code | extend `treesitter.py` | 4.2 | [ ] |
+| 4.4 | code | `indexer.py` | 4.2, 3.1, 2.2 (LanceDB) | [ ] |
+| 4.5 | code | `searcher.py` | 4.4 | [ ] |
+| 5.1 | mcp | `mcp_server.py` | 3.1 | [ ] |
+| 5.2 | mcp | `mcp_server.py` | 5.1, 2.2 | [ ] |
+| 5.3 | mcp | `mcp_server.py` | 5.1, 4.5 | [ ] |
+| 5.4 | hooks | `session_start.py` | 5.2, 5.3 | [ ] |
