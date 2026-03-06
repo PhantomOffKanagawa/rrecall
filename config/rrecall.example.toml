@@ -28,6 +28,7 @@ model = "text-embedding-3-small"
 
 [hooks]
 enabled = true
+auto_index = true  # Automatically index session notes after finalize writes them
 
 [hooks.filtering]
 enabled = true

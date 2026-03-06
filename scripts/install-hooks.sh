@@ -37,13 +37,13 @@ settings = json.load(sys.stdin)
 
 hooks = settings.setdefault('hooks', {})
 
-pre_compact_hook = {
-    'type': 'command',
-    'command': 'rrecall hooks pre-compact'
-}
 session_end_hook = {
     'type': 'command',
     'command': 'rrecall hooks session-end'
+}
+stop_hook = {
+    'type': 'command',
+    'command': 'rrecall hooks stop'
 }
 
 # Check for existing rrecall hooks to avoid duplicates
@@ -54,14 +54,14 @@ def has_rrecall_hook(hook_list, module_name):
                 return True
     return False
 
-if not has_rrecall_hook(hooks.get('PreCompact', []), 'rrecall hooks pre-compact'):
-    hooks.setdefault('PreCompact', []).append({
-        'hooks': [pre_compact_hook]
-    })
-
 if not has_rrecall_hook(hooks.get('SessionEnd', []), 'rrecall hooks session-end'):
     hooks.setdefault('SessionEnd', []).append({
         'hooks': [session_end_hook]
+    })
+
+if not has_rrecall_hook(hooks.get('Stop', []), 'rrecall hooks stop'):
+    hooks.setdefault('Stop', []).append({
+        'hooks': [stop_hook]
     })
 
 print(json.dumps(settings, indent=2))
@@ -70,5 +70,5 @@ print(json.dumps(settings, indent=2))
 mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
 
 echo "rrecall hooks installed to $SETTINGS_FILE"
-echo "  PreCompact  -> rrecall hooks pre-compact"
-echo "  SessionEnd  -> rrecall hooks session-end"
+echo "  Stop        -> rrecall hooks stop (updates markdown each turn)"
+echo "  SessionEnd  -> rrecall hooks session-end (final write + indexing)"

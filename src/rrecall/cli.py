@@ -50,7 +50,8 @@ def index(file_path: str | None, force: bool, embed: bool) -> None:
 @click.option("--project", default=None, help="Filter by project.")
 @click.option("--session-id", default=None, help="Filter by session ID.")
 @click.option("--tags", default=None, help="Filter by tags (comma-separated).")
-def search(query: str, mode: str, top_k: int, project: str | None, session_id: str | None, tags: str | None) -> None:
+@click.option("--json", "output_json", is_flag=True, help="Output results as JSON.")
+def search(query: str, mode: str, top_k: int, project: str | None, session_id: str | None, tags: str | None, output_json: bool) -> None:
     """Search indexed notes."""
     from rrecall.notes.searcher import search as do_search
     from rrecall.vectordb.lancedb_store import VectorStore
@@ -63,6 +64,21 @@ def search(query: str, mode: str, top_k: int, project: str | None, session_id: s
         embedder = get_provider(get_config())
 
     results = do_search(store, query, top_k=top_k, mode=mode, project=project, session_id=session_id, tags=tags, embedder=embedder)
+
+    if output_json:
+        import json
+        out = [
+            {
+                "file": r.source_file,
+                "heading": r.heading,
+                "score": r.score,
+                "text": r.text,
+                **{k: v for k, v in r.metadata.items() if k not in ("vector",)},
+            }
+            for r in results
+        ]
+        click.echo(json.dumps(out, indent=2))
+        return
 
     if not results:
         click.echo("No results found.")
@@ -121,7 +137,8 @@ def code_index(dir_path: str | None, force: bool, embed: bool) -> None:
 @click.option("--language", default=None, help="Filter by language.")
 @click.option("--chunk-type", default=None, help="Filter by chunk type (function, class, imports).")
 @click.option("--repo", "repo_name", default=None, help="Filter by repo name.")
-def code_search(query: str, mode: str, top_k: int, language: str | None, chunk_type: str | None, repo_name: str | None) -> None:
+@click.option("--json", "output_json", is_flag=True, help="Output results as JSON.")
+def code_search(query: str, mode: str, top_k: int, language: str | None, chunk_type: str | None, repo_name: str | None, output_json: bool) -> None:
     """Search indexed code."""
     from rrecall.code.searcher import search as do_search
     from rrecall.vectordb.lancedb_store import VectorStore
@@ -136,14 +153,38 @@ def code_search(query: str, mode: str, top_k: int, language: str | None, chunk_t
     results = do_search(store, query, top_k=top_k, mode=mode, language=language,
                         chunk_type=chunk_type, repo_name=repo_name, embedder=embedder)
 
+    if output_json:
+        import json
+        out = [
+            {
+                "file": r.source_file,
+                "start_line": r.metadata.get("start_line"),
+                "end_line": r.metadata.get("end_line"),
+                "score": r.score,
+                "language": r.metadata.get("language", ""),
+                "chunk_type": r.metadata.get("chunk_type", ""),
+                "symbol_name": r.metadata.get("symbol_name", ""),
+                "signature": r.metadata.get("signature", ""),
+                "text": r.text,
+            }
+            for r in results
+        ]
+        click.echo(json.dumps(out, indent=2))
+        return
+
     if not results:
         click.echo("No results found.")
         return
 
     for i, r in enumerate(results, 1):
         click.echo(f"\n--- Result {i} (score: {r.score:.4f}) ---")
-        click.echo(f"File: {r.source_file}")
         meta = r.metadata
+        loc = r.source_file
+        if meta.get("start_line"):
+            loc += f":{meta['start_line']}"
+            if meta.get("end_line") and meta["end_line"] != meta["start_line"]:
+                loc += f"-{meta['end_line']}"
+        click.echo(f"File: {loc}")
         parts = []
         if meta.get("language"):
             parts.append(meta["language"])
@@ -196,18 +237,36 @@ def hooks() -> None:
     """Hook entry points called by Claude Code (reads JSON from stdin)."""
 
 
-@hooks.command("pre-compact")
-def hooks_pre_compact() -> None:
-    """PreCompact hook — snapshots transcript before compaction."""
-    from rrecall.hooks.pre_compact import run
-    run()
-
-
 @hooks.command("session-end")
 def hooks_session_end() -> None:
-    """SessionEnd hook — triggers transcript conversion to Markdown."""
+    """SessionEnd hook — triggers transcript conversion to Markdown and indexes."""
     from rrecall.hooks.session_end import run
     run()
+
+
+@hooks.command("stop")
+def hooks_stop() -> None:
+    """Stop hook — updates Markdown after each turn (no indexing)."""
+    from rrecall.hooks.session_end import run
+    run(no_index=True)
+
+
+@hooks.command("backfill")
+@click.option("--dry-run", is_flag=True, help="Show what would be processed without doing it.")
+@click.option("--force", is_flag=True, help="Re-process already completed sessions.")
+@click.option("--min-messages", default=None, type=int, help="Override minimum message count filter.")
+def hooks_backfill(dry_run: bool, force: bool, min_messages: int | None) -> None:
+    """Retroactively run session-end processing on all previous conversations."""
+    from rrecall.hooks.backfill import backfill
+
+    label = "[dry-run] " if dry_run else ""
+    click.echo(f"{label}Scanning for unprocessed Claude Code sessions...")
+
+    processed, skipped, failed = backfill(
+        dry_run=dry_run, force=force, min_messages=min_messages,
+    )
+
+    click.echo(f"\n{label}Done: {processed} processed, {skipped} skipped, {failed} failed.")
 
 
 if __name__ == "__main__":

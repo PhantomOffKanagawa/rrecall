@@ -188,57 +188,99 @@ def index_repo(
     chunks_added = 0
     current_paths: set[str] = set()
 
+    # Determine which files need indexing
+    to_index: list[tuple[Path, str, str]] = []  # (path, fpath, file_hash)
     for f in files:
         fpath = str(f)
         current_paths.add(fpath)
         fh = file_hash(f)
+        if force or file_index.get(fpath) != fh:
+            to_index.append((f, fpath, fh))
+        else:
+            pass  # unchanged, skip
 
-        if not force and file_index.get(fpath) == fh:
-            continue
+    import click
+    skipped = len(files) - len(to_index)
+    if skipped and to_index:
+        click.echo(f"Skipping {skipped} unchanged files, indexing {len(to_index)}...")
 
-        chunks = chunk_file(f, max_chars=code_cfg.chunk_max_chars, min_chars=code_cfg.chunk_min_chars)
-        if not chunks:
+    if to_index:
+        # Phase 1: Chunk all files (fast, no I/O beyond reading source)
+        # Each entry: (fpath, fh, list_of_chunks)
+        file_chunks: list[tuple[str, str, list]] = []
+        with click.progressbar(to_index, label="Chunking",
+                               item_show_func=lambda p: str(p[0].name) if p else "") as bar:
+            for f, fpath, fh in bar:
+                chunks = chunk_file(f, max_chars=code_cfg.chunk_max_chars, min_chars=code_cfg.chunk_min_chars)
+                file_chunks.append((fpath, fh, chunks))
+
+        # Phase 2: Batch embed all chunks at once
+        all_texts: list[str] = []
+        for fpath, fh, chunks in file_chunks:
+            for c in chunks:
+                text = f"{c.context_header}\n{c.text}" if c.context_header else c.text
+                all_texts.append(text)
+
+        all_vectors: list[list[float]] | None = None
+        if embedder is not None and all_texts:
+            click.echo(f"Embedding {len(all_texts)} chunks...")
+            all_vectors = embedder.embed_texts(all_texts)
+
+        # Phase 3: Build records and upsert in batches
+        vec_idx = 0
+        all_records: list[dict[str, Any]] = []
+        delete_paths: list[str] = []
+
+        for fpath, fh, chunks in file_chunks:
+            if not chunks:
+                file_index[fpath] = fh
+                vec_idx += len(chunks)  # 0, but consistent
+                continue
+
+            delete_paths.append(fpath)
+            for i, c in enumerate(chunks):
+                all_records.append({
+                    "id": f"{fh}_{i}",
+                    "source_file": c.file_path,
+                    "repo_name": repo_name,
+                    "language": c.language,
+                    "chunk_type": c.chunk_type,
+                    "symbol_name": c.symbol_name,
+                    "parent_symbol": c.parent_symbol,
+                    "signature": c.signature,
+                    "text": c.text,
+                    "context_header": c.context_header,
+                    "content_hash": fh,
+                    "start_line": c.start_line,
+                    "end_line": c.end_line,
+                    "chunk_index": i,
+                    "vector": all_vectors[vec_idx] if all_vectors else [0.0] * dim,
+                })
+                vec_idx += 1
+
+            files_indexed += 1
             file_index[fpath] = fh
-            continue
 
-        # Embed if provider given
-        vectors: list[list[float]] | None = None
-        if embedder is not None:
-            texts = [f"{c.context_header}\n{c.text}" if c.context_header else c.text for c in chunks]
-            vectors = embedder.embed_texts(texts)
+        # Bulk delete old chunks for changed files
+        if delete_paths:
+            try:
+                table = store._db.open_table(TABLE_NAME)
+                conditions = " OR ".join(
+                    f"source_file = '{p.replace(chr(39), chr(39)+chr(39))}'" for p in delete_paths
+                )
+                table.delete(conditions)
+            except Exception:
+                pass
 
-        records: list[dict[str, Any]] = []
-        for i, c in enumerate(chunks):
-            records.append({
-                "id": f"{fh}_{i}",
-                "source_file": c.file_path,
-                "repo_name": repo_name,
-                "language": c.language,
-                "chunk_type": c.chunk_type,
-                "symbol_name": c.symbol_name,
-                "parent_symbol": c.parent_symbol,
-                "signature": c.signature,
-                "text": c.text,
-                "context_header": c.context_header,
-                "content_hash": fh,
-                "start_line": c.start_line,
-                "end_line": c.end_line,
-                "chunk_index": i,
-                "vector": vectors[i] if vectors else [0.0] * dim,
-            })
-
-        # Remove old chunks for this file before upserting
-        try:
-            escaped = fpath.replace("'", "''")
-            table = store._db.open_table(TABLE_NAME)
-            table.delete(f"source_file = '{escaped}'")
-        except Exception:
-            pass
-
-        store.upsert_chunks(TABLE_NAME, records)
-        chunks_added += len(records)
-        files_indexed += 1
-        file_index[fpath] = fh
+        # Bulk upsert in batches of 5000 records
+        BATCH_SIZE = 5000
+        if all_records:
+            with click.progressbar(range(0, len(all_records), BATCH_SIZE),
+                                   label="Writing ", length=len(all_records) // BATCH_SIZE + 1) as bar:
+                for start in bar:
+                    batch = all_records[start:start + BATCH_SIZE]
+                    store.upsert_chunks(TABLE_NAME, batch)
+            chunks_added = len(all_records)
 
     # Remove stale files (deleted from repo)
     repo_prefix = str(repo_path)

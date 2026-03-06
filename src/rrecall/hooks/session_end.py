@@ -20,7 +20,7 @@ from rrecall.utils.logging import get_logger
 logger = get_logger("hooks.session_end")
 
 
-def run() -> None:
+def run(*, no_index: bool = False) -> None:
     """Core logic — reads hook payload from stdin. Does not call sys.exit."""
     try:
         raw = sys.stdin.read()
@@ -66,13 +66,16 @@ def run() -> None:
                 return
 
         # Fork heavy work to background
+        cmd = [
+            sys.executable, "-m", "rrecall.hooks.finalize",
+            "--session-id", session_id,
+            "--transcript-path", transcript_path,
+            "--cwd", cwd,
+        ]
+        if no_index:
+            cmd.append("--no-index")
         subprocess.Popen(
-            [
-                sys.executable, "-m", "rrecall.hooks.finalize",
-                "--session-id", session_id,
-                "--transcript-path", transcript_path,
-                "--cwd", cwd,
-            ],
+            cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,

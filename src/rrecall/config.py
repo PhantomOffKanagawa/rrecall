@@ -106,6 +106,7 @@ class HooksSummaryConfig(BaseModel):
 
 class HooksConfig(BaseModel):
     enabled: bool = True
+    auto_index: bool = True
     filtering: HooksFilteringConfig = Field(default_factory=HooksFilteringConfig)
     summary: HooksSummaryConfig = Field(default_factory=HooksSummaryConfig)
 

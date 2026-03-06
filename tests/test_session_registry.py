@@ -7,7 +7,6 @@ import pytest
 from rrecall.hooks.session_registry import (
     get_session,
     is_duplicate,
-    record_pre_compact,
     record_session_end,
     register_session,
 )
@@ -30,17 +29,6 @@ def test_register_session_second_call_returns_existing():
     second = register_session("sess-001", "/different/path")
     assert second.session_id == first.session_id
     assert second.cwd == "/home/user/project"
-
-
-def test_record_pre_compact_appends_snapshot_path():
-    register_session("sess-001", "/home/user/project")
-    record_pre_compact("sess-001", "/tmp/snap1.jsonl")
-    record_pre_compact("sess-001", "/tmp/snap2.jsonl")
-
-    entry = get_session("sess-001")
-    assert "/tmp/snap1.jsonl" in entry.pre_compact_snapshots
-    assert "/tmp/snap2.jsonl" in entry.pre_compact_snapshots
-    assert len(entry.pre_compact_snapshots) == 2
 
 
 def test_record_session_end_sets_completed_status():
@@ -88,10 +76,3 @@ def test_registry_persists_across_calls(tmp_path, monkeypatch):
     assert "sess-persist" in raw
     assert raw["sess-persist"]["status"] == "completed"
     assert raw["sess-persist"]["last_transcript_hash"] == "hash99"
-
-
-def test_record_pre_compact_auto_creates_unknown_session():
-    record_pre_compact("never-registered", "/tmp/snapshot.jsonl")
-    entry = get_session("never-registered")
-    assert entry is not None
-    assert "/tmp/snapshot.jsonl" in entry.pre_compact_snapshots

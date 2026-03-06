@@ -6,7 +6,7 @@ import pytest
 from pathlib import Path
 
 from rrecall.hooks.finalize import finalize
-from rrecall.hooks.session_registry import register_session, record_pre_compact, get_session
+from rrecall.hooks.session_registry import register_session, get_session
 
 
 @pytest.fixture(autouse=True)
@@ -130,36 +130,6 @@ def test_resumed_session_appends_section(tmp_path, env_setup):
     assert "## Resumed" in content
     assert "New question" in content
     assert "New answer" in content
-
-
-def test_pre_compact_snapshot_rendered_and_cleaned_up(tmp_path, env_setup):
-    vault_dir = env_setup["vault_dir"]
-
-    snapshot = tmp_path / "snapshot.jsonl"
-    _make_transcript(snapshot, messages=[
-        {"type": "user", "message": {"role": "user", "content": "Old compacted message"}, "timestamp": "2026-03-05T09:00:00Z"},
-        {"type": "assistant", "message": {"role": "assistant", "content": "Old compacted reply"}, "timestamp": "2026-03-05T09:01:00Z"},
-    ])
-
-    register_session("sess-compact", "/home/user/myproject")
-    record_pre_compact("sess-compact", str(snapshot))
-
-    transcript = tmp_path / "transcript.jsonl"
-    _make_transcript(transcript, messages=[
-        {"type": "user", "message": {"role": "user", "content": "Current message"}, "timestamp": "2026-03-05T10:00:00Z"},
-        {"type": "assistant", "message": {"role": "assistant", "content": "Current reply"}, "timestamp": "2026-03-05T10:01:00Z"},
-    ])
-
-    finalize("sess-compact", str(transcript), "/home/user/myproject")
-
-    session_dir = vault_dir / "Claude Sessions"
-    md_files = list(session_dir.glob("*.md"))
-    assert len(md_files) == 1
-    content = md_files[0].read_text(encoding="utf-8")
-
-    assert "## Pre-Compaction Snapshot 1" in content
-    assert "Old compacted message" in content
-    assert not snapshot.exists()
 
 
 def test_nonexistent_transcript_does_not_crash(tmp_path):

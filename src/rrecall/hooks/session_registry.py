@@ -28,7 +28,6 @@ class SessionEntry:
     session_id: str
     cwd: str
     started_at: str  # ISO format
-    pre_compact_snapshots: list[str] = field(default_factory=list)
     last_transcript_hash: str = ""
     markdown_path: str = ""
     status: str = "active"  # active, completed
@@ -102,7 +101,6 @@ def _entry_from_dict(d: dict) -> SessionEntry:
         session_id=d.get("session_id", ""),
         cwd=d.get("cwd", ""),
         started_at=d.get("started_at", ""),
-        pre_compact_snapshots=d.get("pre_compact_snapshots", []),
         last_transcript_hash=d.get("last_transcript_hash", ""),
         markdown_path=d.get("markdown_path", ""),
         status=d.get("status", "active"),
@@ -131,23 +129,6 @@ def register_session(session_id: str, cwd: str, transcript_path: str = "") -> Se
         _write_registry(registry)
         logger.info("Registered session %s (cwd=%s)", session_id, cwd)
         return entry
-
-
-def record_pre_compact(session_id: str, snapshot_path: str) -> None:
-    """Record a pre-compact snapshot for a session."""
-    with _RegistryLock():
-        registry = _read_registry()
-        if session_id not in registry:
-            logger.warning("record_pre_compact: session %s not found, registering", session_id)
-            registry[session_id] = asdict(SessionEntry(
-                session_id=session_id,
-                cwd="",
-                started_at=datetime.now(timezone.utc).isoformat(),
-            ))
-
-        registry[session_id].setdefault("pre_compact_snapshots", []).append(snapshot_path)
-        _write_registry(registry)
-        logger.debug("Recorded pre-compact snapshot for %s: %s", session_id, snapshot_path)
 
 
 def record_session_end(session_id: str, transcript_hash: str, markdown_path: str) -> None:

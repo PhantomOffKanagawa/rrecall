@@ -19,7 +19,6 @@ class SessionMetadata:
     cwd: str
     started_at: datetime | None = None
     ended_at: datetime | None = None
-    compactions: int = 0
 
     @property
     def project_name(self) -> str:
@@ -49,7 +48,6 @@ def _build_frontmatter(data: TranscriptData, meta: SessionMetadata) -> str:
     if meta.ended_at:
         lines.append(f"ended: {meta.ended_at.isoformat()}")
 
-    lines.append(f"compactions: {meta.compactions}")
     lines.append(f"tags: [claude-session, {meta.project_name}]")
 
     if data.summary:
@@ -109,16 +107,12 @@ def _compute_duration(meta: SessionMetadata) -> str:
 def transcript_to_markdown(
     data: TranscriptData,
     metadata: SessionMetadata,
-    *,
-    pre_compact_messages: list[list[TranscriptMessage]] | None = None,
 ) -> str:
     """Convert parsed transcript data to Obsidian-compatible Markdown.
 
     Args:
-        data: Parsed transcript data.
+        data: Parsed transcript data (already contains all messages including pre-compaction).
         metadata: Session metadata (id, cwd, timestamps).
-        pre_compact_messages: Optional list of message lists from pre-compaction
-            snapshots, each rendered as a separate section at the end.
 
     Returns:
         Complete Markdown string ready to write to a file.
@@ -158,18 +152,6 @@ def transcript_to_markdown(
     for msg in data.messages:
         sections.append(_format_message(msg))
         sections.append("")
-
-    # --- Pre-compaction snapshots ---
-    if pre_compact_messages:
-        for i, snapshot_msgs in enumerate(pre_compact_messages, 1):
-            sections.append("---")
-            sections.append("")
-            sections.append(f"## Pre-Compaction Snapshot {i}")
-            sections.append("*(Content that was compacted, preserved for reference)*")
-            sections.append("")
-            for msg in snapshot_msgs:
-                sections.append(_format_message(msg))
-                sections.append("")
 
     return "\n".join(sections)
 

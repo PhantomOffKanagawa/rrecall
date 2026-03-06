@@ -253,18 +253,26 @@ def index_vault(
     chunks_added = 0
 
     current_paths = set()
+    to_index: list[tuple[Path, str, str]] = []
     for f in files:
         fpath = str(f)
         current_paths.add(fpath)
         fh = file_hash(f)
+        if force or file_index.get(fpath) != fh:
+            to_index.append((f, fpath, fh))
 
-        if not force and file_index.get(fpath) == fh:
-            continue  # unchanged
+    import click
+    skipped = len(files) - len(to_index)
+    if skipped and to_index:
+        click.echo(f"Skipping {skipped} unchanged files, indexing {len(to_index)}...")
 
-        n = index_file(store, f, config, embedder=embedder)
-        chunks_added += n
-        files_indexed += 1
-        file_index[fpath] = fh
+    with click.progressbar(to_index, label="Indexing",
+                           item_show_func=lambda p: str(p[0].name) if p else "") as bar:
+        for f, fpath, fh in bar:
+            n = index_file(store, f, config, embedder=embedder)
+            chunks_added += n
+            files_indexed += 1
+            file_index[fpath] = fh
 
     # Handle deletions — remove chunks for files no longer present
     files_removed = 0

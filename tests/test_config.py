@@ -62,6 +62,10 @@ class TestDefaults:
         assert isinstance(c.repos.groups, dict)
         assert len(c.repos.groups) == 0
 
+    def test_hooks_auto_index_default_true(self):
+        cfg = RrecallConfig()
+        assert cfg.hooks.auto_index is True
+
     def test_openai_default_pricing(self):
         cfg = RrecallConfig()
         pricing = cfg.embedding.openai.pricing
@@ -114,6 +118,7 @@ class TestTOMLLoading:
         assert cfg.embedding.provider == "local"
         assert cfg.notes.chunk_max_tokens == 512
         assert cfg.hooks.filtering.min_messages == 3
+        assert cfg.hooks.auto_index is True
 
     def test_load_missing_file_returns_defaults(self, tmp_path: Path):
         cfg = load_config(tmp_path / "nonexistent.toml")
@@ -129,6 +134,12 @@ class TestTOMLLoading:
         # Everything else should be defaults
         assert cfg.embedding.provider == "local"
         assert cfg.hooks.enabled is True
+
+    def test_load_auto_index_disabled(self, tmp_path: Path):
+        toml_file = tmp_path / "no_autoindex.toml"
+        toml_file.write_text('[hooks]\nauto_index = false\n')
+        cfg = load_config(toml_file)
+        assert cfg.hooks.auto_index is False
 
     def test_load_invalid_toml_raises(self, tmp_path: Path):
         bad_file = tmp_path / "bad.toml"

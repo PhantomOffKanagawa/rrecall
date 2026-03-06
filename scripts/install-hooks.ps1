@@ -65,20 +65,20 @@ if ($hooks -isnot [System.Collections.IDictionary]) {
     $settings["hooks"] = $hooks
 }
 
-$preCompactHook = [ordered]@{
-    "hooks" = @(
-        [ordered]@{
-            "type" = "command"
-            "command" = "rrecall hooks pre-compact"
-        }
-    )
-}
-
 $sessionEndHook = [ordered]@{
     "hooks" = @(
         [ordered]@{
             "type" = "command"
             "command" = "rrecall hooks session-end"
+        }
+    )
+}
+
+$stopHook = [ordered]@{
+    "hooks" = @(
+        [ordered]@{
+            "type" = "command"
+            "command" = "rrecall hooks stop"
         }
     )
 }
@@ -97,13 +97,6 @@ function Test-HasRrecallHook {
     return $false
 }
 
-if (-not $hooks.Contains("PreCompact")) {
-    $hooks["PreCompact"] = @()
-}
-if (-not (Test-HasRrecallHook $hooks["PreCompact"] "rrecall hooks pre-compact")) {
-    $hooks["PreCompact"] += $preCompactHook
-}
-
 if (-not $hooks.Contains("SessionEnd")) {
     $hooks["SessionEnd"] = @()
 }
@@ -111,10 +104,17 @@ if (-not (Test-HasRrecallHook $hooks["SessionEnd"] "rrecall hooks session-end"))
     $hooks["SessionEnd"] += $sessionEndHook
 }
 
+if (-not $hooks.Contains("Stop")) {
+    $hooks["Stop"] = @()
+}
+if (-not (Test-HasRrecallHook $hooks["Stop"] "rrecall hooks stop")) {
+    $hooks["Stop"] += $stopHook
+}
+
 $settings["hooks"] = $hooks
 $json = $settings | ConvertTo-Json -Depth 10
 Set-Content -Path $SettingsFile -Value $json -Encoding UTF8
 
 Write-Host "rrecall hooks installed to $SettingsFile"
-Write-Host "  PreCompact  -> rrecall hooks pre-compact"
-Write-Host "  SessionEnd  -> rrecall hooks session-end"
+Write-Host "  Stop        -> rrecall hooks stop (updates markdown each turn)"
+Write-Host "  SessionEnd  -> rrecall hooks session-end (final write + indexing)"

@@ -33,10 +33,10 @@ def test_fresh_install_creates_settings(tmp_path: Path):
     assert result.returncode == 0, result.stderr
     settings = load_settings(tmp_path)
     assert "hooks" in settings
-    assert len(settings["hooks"]["PreCompact"]) == 1
     assert len(settings["hooks"]["SessionEnd"]) == 1
-    hook_cmd = settings["hooks"]["PreCompact"][0]["hooks"][0]["command"]
-    assert hook_cmd == "rrecall hooks pre-compact"
+    assert settings["hooks"]["SessionEnd"][0]["hooks"][0]["command"] == "rrecall hooks session-end"
+    assert len(settings["hooks"]["Stop"]) == 1
+    assert settings["hooks"]["Stop"][0]["hooks"][0]["command"] == "rrecall hooks stop"
 
 
 def test_preserves_existing_settings(tmp_path: Path):
@@ -66,8 +66,8 @@ def test_no_duplicate_hooks_on_rerun(tmp_path: Path):
     run_install(tmp_path)
     run_install(tmp_path)
     settings = load_settings(tmp_path)
-    assert len(settings["hooks"]["PreCompact"]) == 1
     assert len(settings["hooks"]["SessionEnd"]) == 1
+    assert len(settings["hooks"]["Stop"]) == 1
 
 
 def test_preserves_existing_hooks(tmp_path: Path):
@@ -84,8 +84,8 @@ def test_preserves_existing_hooks(tmp_path: Path):
     assert result.returncode == 0, result.stderr
     settings = load_settings(tmp_path)
     assert "PreToolUse" in settings["hooks"]
-    assert "PreCompact" in settings["hooks"]
     assert "SessionEnd" in settings["hooks"]
+    assert "Stop" in settings["hooks"]
 
 
 def test_user_scope(tmp_path: Path):
@@ -98,8 +98,8 @@ def test_user_scope(tmp_path: Path):
 def test_output_messages(tmp_path: Path):
     result = run_install(tmp_path)
     assert "rrecall hooks installed" in result.stdout
-    assert "PreCompact" in result.stdout
     assert "SessionEnd" in result.stdout
+    assert "Stop" in result.stdout
 
 
 def test_no_backup_on_fresh_install(tmp_path: Path):
@@ -129,7 +129,8 @@ def test_project_scope_writes_to_project_dir(tmp_path: Path):
     project_settings = project_dir / ".claude" / "settings.json"
     assert project_settings.exists()
     settings = json.loads(project_settings.read_text())
-    assert "PreCompact" in settings["hooks"]
+    assert "SessionEnd" in settings["hooks"]
+    assert "Stop" in settings["hooks"]
 
 
 def test_project_scope_does_not_write_to_home(tmp_path: Path):

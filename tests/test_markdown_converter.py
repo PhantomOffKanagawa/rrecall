@@ -94,23 +94,6 @@ def test_tool_use_renders_as_obsidian_callout():
     assert "> [!tool]- Bash: `cat src/auth.py`" in md
 
 
-def test_pre_compact_snapshot_section_appears():
-    snapshot_msgs = [
-        TranscriptMessage(role="user", timestamp=None, text_content="Earlier message"),
-    ]
-    md = transcript_to_markdown(_make_data(), _make_meta(), pre_compact_messages=[snapshot_msgs])
-    assert "## Pre-Compaction Snapshot 1" in md
-
-
-def test_multiple_pre_compact_snapshots_numbered():
-    snapshot = [TranscriptMessage(role="user", timestamp=None, text_content="msg")]
-    md = transcript_to_markdown(
-        _make_data(), _make_meta(), pre_compact_messages=[snapshot, snapshot]
-    )
-    assert "## Pre-Compaction Snapshot 1" in md
-    assert "## Pre-Compaction Snapshot 2" in md
-
-
 def test_resumed_section_heading():
     ts = datetime(2026, 3, 5, 14, 30, 0, tzinfo=timezone.utc)
     data = TranscriptData(summary=None, messages=[])
