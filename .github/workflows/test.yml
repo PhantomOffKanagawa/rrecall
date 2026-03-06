@@ -1,0 +1,36 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Install PowerShell Core
+        run: |
+          apt-get update && apt-get install -y wget jq
+          PWSH_VER=$(wget -qO- https://api.github.com/repos/PowerShell/PowerShell/releases/latest | jq -r '.tag_name')
+          wget -q "https://github.com/PowerShell/PowerShell/releases/download/${PWSH_VER}/powershell_${PWSH_VER#v}-1.deb_amd64.deb"
+          dpkg -i powershell_*.deb || apt-get install -f -y
+          rm powershell_*.deb
+
+      - name: Run tests
+        run: uv run pytest tests/ -v

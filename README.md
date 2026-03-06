@@ -117,6 +117,8 @@ uv run pytest
 - [ ] Add better loading indicator
 - [ ] Limit OOM errors but ensure speed
 - [ ] Test OpenAI option
+- [ ] Add command to find relevant conversation and resume them
+- [ ] Add command for hook to backup .jsonl files to secondary backup folder
 
 ## License
 
